@@ -12,16 +12,3 @@ seaborn
 streamlit
 plotly
 statsmodels
-numpy
-pandas
-scikit-learn
-torch
-matplotlib
-seaborn
-joblib
-openpyxl
-requests
-jieba
-gensim
-plotly
-streamlit
