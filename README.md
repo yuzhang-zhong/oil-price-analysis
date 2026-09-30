@@ -1,33 +1,41 @@
-# Oil Analysis 项目总览
+# 油价分析 (Oil Price Analysis)
 
-这是一个融合 `ML` 与 `NLP` 的油价分析项目，并提供统一的 Streamlit 学术分析前端（支持中英双语切换）：
+融合机器学习时序预测与 NLP 文本语义建模的油价分析项目，附带 Streamlit 交互式分析前端（支持中英双语）。
 
-- `ML/`：时序特征工程 + LSTM 预测（下一期价格变化、库存变化）
-- `NLP/`：中文事件文本分词 + Word2Vec 向量建模
-- `streamlit_app.py`：统一学术分析平台（中英双语、图文解释、可审计流程）
+<!-- TODO: add screenshot -->
 
 ---
 
-## 1. 目录说明
+## 功能
 
-- `ML/main.py`：ML 入口（`train` / `predict` / `plots`）
-- `ML/outputs_lstm_wf/`：训练指标、预测结果、最终模型包
-- `NLP/oil_price_nlp.py`：NLP 训练与向量导出
-- `NLP/outputs/text_vectors.csv`：NLP 语义向量输出
-- `streamlit_app.py`：前端应用
-- `requirements.txt`：统一依赖清单
+- **ML 时序预测**：用 LSTM 预测下一期油价变化（`price_change_t1`）；输入严格限定为 `WTI_T` / `Stock_T` / `Price_Change` / `Stock_Change` 及其时序衍生特征；采用 walk-forward 多折验证、Top-N 模型集成、近期窗口专模与 Ridge 误差校正
+- **NLP 文本建模**：对中文石油事件文本做 jieba 分词，训练 Word2Vec 词向量（100 维），用 PCA 可视化关键词语义分布，并分析词向量各维度与油价变动的相关性
+- **Streamlit 前端**：中英双语切换；四个标签页——总览（核心指标与最新预测）、模型评估（holdout 真实/预测曲线、残差分布、校准图、各折指标表）、图表看板（训练产物 PNG 一览）、导出与文件（关键结果下载）；侧边栏可一键刷新预测、重生成图表、触发完整重训
 
 ---
 
-## 2. 环境安装
+## 快速开始
+
+```bash
+pip install -r requirements.txt
+streamlit run streamlit_app.py
+```
+
+---
+
+## 安装
+
+需要 Python 3 与 pip：
 
 ```bash
 pip install -r requirements.txt
 ```
 
+> LSTM 训练依赖 PyTorch；有 GPU 会自动使用 CUDA，否则回退到 CPU。
+
 ---
 
-## 3. 启动方式
+## 用法
 
 ### 启动交互前端（推荐）
 
@@ -35,77 +43,72 @@ pip install -r requirements.txt
 streamlit run streamlit_app.py
 ```
 
-启动后可在右上角 `Language / 语言` 切换 `中文` / `English`。
+在侧边栏 `Language / 语言` 切换中文 / English；侧边栏按钮分别触发预测刷新、图表重生成与完整重训（底层调用 `ML/main.py`）。
 
-### 单独运行 ML 推理
-
-```bash
-python ML/main.py predict
-```
-
-### 单独运行 NLP 向量处理
+### 单独运行 ML
 
 ```bash
-python NLP/oil_price_nlp.py
+cd ML
+python main.py train     # 完整训练流程（walk-forward + 超参搜索 + 结果导出）
+python main.py predict   # 用最终模型包做下一期预测
+python main.py plots     # 补生成描述性与诊断图表
+```
+
+> 注意：`train` 与 `predict` 的默认数据路径为 Windows 绝对路径（`train_lstm_pipeline.py` 的 `Config.data_path` 与 `main.py` 的 `--data` 默认值）；在非 Windows 环境运行时请改用 `--data` 指定 CSV，例如：
+>
+> ```bash
+> python main.py predict --data 4.0_enriched.csv --package-dir outputs_lstm_wf/final_package
+> ```
+
+### 单独运行 NLP
+
+```bash
+cd NLP
+pip install -r requirements.txt
+python oil_price_nlp.py
+```
+
+流程：中文分词 → Word2Vec 训练 → 关键词向量可视化 → 向量维度与油价变动相关性分析；结果写入 `outputs/`。路径与超参数在 `NLP/config.json` 中配置，模块说明见 `NLP/README(1).md`。
+
+---
+
+## 技术栈
+
+- 机器学习：PyTorch（LSTM）、scikit-learn、numpy、pandas、joblib、statsmodels
+- 自然语言处理：jieba、gensim（Word2Vec）
+- 可视化：matplotlib、seaborn、Plotly
+- 前端：Streamlit
+- 数据读写：openpyxl、requests
+
+---
+
+## 项目结构
+
+```
+oil-price-analysis/
+├── streamlit_app.py          # Streamlit 交互前端（中英双语）
+├── requirements.txt          # 统一依赖清单
+├── LICENSE                   # MIT 协议
+├── .gitignore
+├── ML/
+│   ├── main.py               # ML 统一入口：train / predict / plots
+│   ├── train_lstm_pipeline.py# LSTM 训练、超参搜索、walk-forward 验证与结果导出
+│   ├── generate_plots.py     # 描述性与诊断图表生成
+│   ├── 4.0_enriched.csv      # ML 训练输入数据
+│   ├── requirements.txt      # ML 依赖（根目录 requirements.txt 已覆盖）
+│   ├── README.md             # ML 模块详细说明
+│   └── outputs_lstm_wf/      # 训练产物：指标、预测、图表与最终模型包 final_package/
+└── NLP/
+    ├── oil_price_nlp.py      # NLP 主脚本：分词、Word2Vec、可视化、相关性分析
+    ├── config.json           # 路径、列名、Word2Vec 超参数配置
+    ├── data.xlsx             # 中文事件文本输入数据
+    ├── requirements.txt      # NLP 依赖（根目录 requirements.txt 已覆盖）
+    ├── README(1).md          # NLP 模块说明
+    └── outputs/              # NLP 产物：词向量模型、向量矩阵、相关性图表
 ```
 
 ---
 
-## 4. 前端功能说明
+## License
 
-### 研究总览
-- 展示核心 KPI：价格/库存 MAE 与最新预测值
-- 展示真实值 vs 预测值
-- 展示各折误差对比
-
-### ML 分析
-- 价格与库存目标切换
-- 残差分布可视化
-- 各折指标对比
-- 训练损失曲线展示
-
-### NLP 洞察
-- 文本向量 PCA 投影
-- 单维向量分布分析
-- NLP 维度与价格变化相关性 Top 分析
-
-### 预测模块（ML/NLP 分离）
-- **ML 数值输入预测**：上传数值 CSV 调用 `ML/main.py predict`
-- **ML 场景预测**：关键变量滑杆输入 + 近邻历史估计
-- **NLP 文本输入预测**：基于关键词语义信号输出方向与分数
-
-### 数据审计
-- 数据完整性、日期顺序、异常值比例检查
-- 评估合理性检查（R2 与基线比较）
-- 可直接触发完整重训
-
-### 算法原理
-- ML（LSTM + Walk-forward）流程说明
-- NLP（Word2Vec + PCA）流程说明
-- 近邻场景预测、异常监控方法说明
-
----
-
-## 5. 界面与交互
-
-- 中英双语切换（页面标题、导航、说明文本）
-- 图表与解释并排展示（每个关键图旁均有 Markdown 解读）
-- 图表支持缩放、框选、拖拽、导出
-
----
-
-## 6. 数据与结果文件
-
-- `ML/outputs_lstm_wf/final_package/predict_next_output.json`：最新预测结果
-- `ML/outputs_lstm_wf/final_package/final_holdout_predictions.csv`：holdout 结果
-- `ML/outputs_lstm_wf/walkforward_fold_metrics.csv`：分折指标
-- `NLP/outputs/text_vectors.csv`：文本向量矩阵
-
----
-
-## 7. 备注
-
-- 上传 CSV 预测依赖与训练数据兼容的字段结构。
-- 手动场景预测属于快速推演，不能替代正式模型输出。
-- 文本 Insight 用于辅助判断，建议与量化预测联合解读。
-
+本项目采用 MIT 协议，详见 [LICENSE](LICENSE)。
